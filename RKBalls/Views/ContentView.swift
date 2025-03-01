@@ -52,12 +52,14 @@ struct ModelExample: View {
 
             anchorEntity.addChild(redSunME)
             
+            // create a single object near the sun
             let brownRock = MeshResource.generateSphere(radius: 0.1)
             let brownRockMaterial = SimpleMaterial(color: .white, roughness: 0.8, isMetallic: false)
             let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
             brownRockME.position = [1.0, 0, 0]
             anchorEntity.addChild(brownRockME)
             
+            // Create a bunch of rock objects
             for n in 0..<100 {
                 var rock = rock()
                 rock.name = "rock_\(n)"
