@@ -113,6 +113,7 @@ struct ModelExample: View {
         return entity
     }
     
+    
     // MARK: Scale the view
     
     func reScale(ddelta: Float) {
