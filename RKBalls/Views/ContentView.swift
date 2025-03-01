@@ -18,83 +18,88 @@ struct ModelExample: View {
     
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
     
-    @State private var litCube: Entity?
     @State private var redSunModelEntity: ModelEntity?
+    @State private var rContent: RealityViewCameraContent?
     
     @State var ticket: AnyCancellable? = nil
+    @State var scale: Float = 1.0
     
     var body: some View {
         RealityView { content in
             
-            content.camera = .virtual
-            debugPrint("____ entity count: \(content.entities.count)")
+            // Setup the anchor
             let anchorEntity = AnchorEntity(world: [0, 0, 0])
+            anchorEntity.name = "anchor"
             
+            // Setup the camera
+            content.camera = .virtual
+            content.add(anchorEntity)
+            camera.camera.fieldOfViewInDegrees = 60
+            camera.name = "pcamera"
+            let cameraAnchor = anchorEntity //AnchorEntity(world: .zero)
+            cameraAnchor.addChild(camera)
+            camera.position = [0, 0, 10]
+            content.add(cameraAnchor)
+            
+            rContent = content
+            
+            // create a red sun object
             let redSun = MeshResource.generateSphere(radius: 0.5)
-            //            let material = SimpleMaterial(color: .red, roughness: 1.0, isMetallic: false)
             var pMat = PhysicallyBasedMaterial()
             pMat.emissiveIntensity = 0.05
             pMat.emissiveColor = .init(color: .red)
             pMat.baseColor = .init(tint: .red)
-            //            pMat.
-            //            var unlitMat = UnlitMaterial(color: .red)
             let redSunME = ModelEntity(mesh: redSun, materials: [pMat])
+            redSunME.name = "redSun"
             redSunModelEntity = redSunME
+            
+            
             anchorEntity.addChild(redSunME)
             
-            //            let lightEntity = try! getLightEntity()
-            //            redSunME.addChild(lightEntity)
-            
             let brownRock = MeshResource.generateSphere(radius: 0.1)
-            //            let brownRockMaterial = UnlitMaterial(color: .white)
             let brownRockMaterial = SimpleMaterial(color: .white, roughness: 0.8, isMetallic: false)
             let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
             brownRockME.position = [1.0, 0, 0]
             anchorEntity.addChild(brownRockME)
             
-            for _ in 0..<100 {
+            for n in 0..<100 {
                 var rock = rock()
+                rock.name = "rock_\(n)"
                 rock.position = SIMD3<Float>.random(in: -20...20)
                 anchorEntity.addChild(rock)
             }
             
-            content.add(anchorEntity)
+            // set which object to look at
+            content.cameraTarget = redSunME
             
-            
-            camera.camera.fieldOfViewInDegrees = 60
-            let cameraAnchor = anchorEntity //AnchorEntity(world: .zero)
-            cameraAnchor.addChild(camera)
-            camera.position = [0, 0, 10]
-            content.add(cameraAnchor)
-            camera.look(at: redSunME.position, from: SIMD3<Float>(0,0,1), relativeTo: nil)
-            
+            // handle scroll wheel events
             trackScrollWheel()
         } update: { content in
-            if let redSunModelEntity = redSunModelEntity {
-                camera.look(at: redSunModelEntity.position, from: camera.position, relativeTo: nil)
+            // MARK: Get the camera and move it's position
+            let entIdx = content.entities.first?.children.firstIndex { entity in
+                entity.name == "pcamera"
+            }
+            if let entIdx {
+                content.entities.first?.children[entIdx].position = SIMD3<Float>(scale,scale,scale)
             }
         }
         .realityViewCameraControls(CameraControls.orbit)
         .background(Color.black)
-        .gesture(SpatialTapGesture().targetedToAnyEntity().onEnded({ value in
-            debugPrint("____ tapped")
-        }))
         .onKeyPress { KeyPress in
-            debugPrint("____ key pressed: \(KeyPress.key)")
-            // FIXME: this should change differently
             if KeyPress.key == "w" {
-                camera.position.z += 0.1
+                if scale > 0.7 {
+                    scale -= 0.1
+                }
             } else if KeyPress.key == "s" {
-                camera.position.z -= 0.1
+                scale += 0.1
             }
             return .handled
         }
-        
     }
     
     func rock() -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.6))
-        let brownRockMaterial = SimpleMaterial(color: .brown, roughness: 0.8, isMetallic: false)
+        let brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
         let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         
         return brownRockME
@@ -108,7 +113,17 @@ struct ModelExample: View {
         return entity
     }
     
-    // Handle zoom through scrollwheel
+    // MARK: Scale the view
+    
+    func reScale(ddelta: Float) {
+        if let rContent = self.rContent {
+            let _ = rContent.entities.map { entity in
+                scale += ddelta
+                if scale < 0.6 { scale = 0.6 }
+            }
+        }
+    }
+    
     func trackScrollWheel() {
         if ticket == nil {
             var didComplete = false
@@ -119,9 +134,8 @@ struct ModelExample: View {
                     ticket = nil
                 }, receiveValue: { event in
                     if let delta = event?.deltaY  {
-                        debugPrint("____ delta: \(delta)")
-                        let ddelta = delta / 10
-                        camera.position += [0, 0, Float(ddelta)]
+                        let ddelta: Float = Float(-delta / 10)
+                        reScale(ddelta: ddelta)
                     }
                 })
             
