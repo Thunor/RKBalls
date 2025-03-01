@@ -15,12 +15,9 @@ struct ModelExample: View {
     @State private var skydome: Entity?
     @State private var indoorIbl: ImageBasedLightComponent?
     @State private var iblEntity: Entity?
-    
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
-    
     @State private var redSunModelEntity: ModelEntity?
     @State private var rContent: RealityViewCameraContent?
-    
     @State var ticket: AnyCancellable? = nil
     @State var scale: Float = 1.0
     
@@ -36,7 +33,7 @@ struct ModelExample: View {
             content.add(anchorEntity)
             camera.camera.fieldOfViewInDegrees = 60
             camera.name = "pcamera"
-            let cameraAnchor = anchorEntity //AnchorEntity(world: .zero)
+            let cameraAnchor = anchorEntity
             cameraAnchor.addChild(camera)
             camera.position = [0, 0, 10]
             content.add(cameraAnchor)
@@ -52,8 +49,7 @@ struct ModelExample: View {
             let redSunME = ModelEntity(mesh: redSun, materials: [pMat])
             redSunME.name = "redSun"
             redSunModelEntity = redSunME
-            
-            
+
             anchorEntity.addChild(redSunME)
             
             let brownRock = MeshResource.generateSphere(radius: 0.1)
@@ -97,6 +93,7 @@ struct ModelExample: View {
         }
     }
     
+    // MARK: used to create a number of spheres, one at a time
     func rock() -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.6))
         let brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
@@ -105,6 +102,7 @@ struct ModelExample: View {
         return brownRockME
     }
     
+    // MARK: Unused point light source.  Need to find out how to remove or override the default lighting.
     func getLightEntity() throws -> Entity {
         let entity = Entity()
         let pointLightComponent = PointLightComponent( cgColor: .init(red: 1, green: 1, blue: 1, alpha: 1), intensity: 500000, attenuationRadius: 2000.0 )
