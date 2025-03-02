@@ -12,9 +12,6 @@ import Combine
 
 struct ModelExample: View {
     
-    @State private var skydome: Entity?
-    @State private var indoorIbl: ImageBasedLightComponent?
-    @State private var iblEntity: Entity?
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
     @State private var redSunModelEntity: ModelEntity?
     @State private var rContent: RealityViewCameraContent?
@@ -26,6 +23,7 @@ struct ModelExample: View {
             
             // Setup the anchor
             let anchorEntity = AnchorEntity(world: [0, 0, 0])
+            anchorEntity.components.set(InputTargetComponent())
             anchorEntity.name = "anchor"
             
             // Setup the camera
@@ -48,6 +46,7 @@ struct ModelExample: View {
             pMat.baseColor = .init(tint: .red)
             let redSunME = ModelEntity(mesh: redSun, materials: [pMat])
             redSunME.name = "redSun"
+            redSunME.generateCollisionShapes(recursive: false)
             redSunModelEntity = redSunME
 
             anchorEntity.addChild(redSunME)
@@ -57,6 +56,8 @@ struct ModelExample: View {
             let brownRockMaterial = SimpleMaterial(color: .white, roughness: 0.8, isMetallic: false)
             let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
             brownRockME.position = [1.0, 0, 0]
+            brownRockME.name = "white_Rock"
+            brownRockME.generateCollisionShapes(recursive: false)
             anchorEntity.addChild(brownRockME)
             
             // Create a bunch of rock objects
@@ -64,6 +65,7 @@ struct ModelExample: View {
                 var rock = rock()
                 rock.name = "rock_\(n)"
                 rock.position = SIMD3<Float>.random(in: -20...20)
+                rock.generateCollisionShapes(recursive: false)
                 anchorEntity.addChild(rock)
             }
             
@@ -93,6 +95,13 @@ struct ModelExample: View {
             }
             return .handled
         }
+        .gesture(TapGesture(count: 2).targetedToAnyEntity().onEnded { gesture in
+            print("got double tap for", gesture.entity.name)
+        })
+        .gesture(TapGesture(count: 1).targetedToAnyEntity().onEnded { gesture in
+            print("got tap for", gesture.entity.name)
+        })
+        
     }
     
     // MARK: used to create a number of spheres, one at a time
@@ -113,9 +122,7 @@ struct ModelExample: View {
         return entity
     }
     
-    
     // MARK: Scale the view
-    
     func reScale(ddelta: Float) {
         if let rContent = self.rContent {
             let _ = rContent.entities.map { entity in
