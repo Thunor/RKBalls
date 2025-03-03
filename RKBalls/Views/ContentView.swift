@@ -17,6 +17,9 @@ struct ModelExample: View {
     @State private var rContent: RealityViewCameraContent?
     @State var ticket: AnyCancellable? = nil
     @State var scale: Float = 1.0
+    @State var planetTexture: TextureResource?
+    
+    var imageName: String = "Azul_4096"
     
     var body: some View {
         RealityView { content in
@@ -52,8 +55,14 @@ struct ModelExample: View {
             anchorEntity.addChild(redSunME)
             
             // create a single object near the sun
+            
+            planetTexture = try? await TextureResource(named: imageName)
             let brownRock = MeshResource.generateSphere(radius: 0.1)
-            let brownRockMaterial = SimpleMaterial(color: .white, roughness: 0.8, isMetallic: false)
+            var brownRockMaterial = SimpleMaterial(color: .white, roughness: 0.8, isMetallic: false)
+            if let planetTexture {
+                brownRockMaterial.color = PhysicallyBasedMaterial
+                                      .BaseColor(texture: .init(planetTexture))
+            }
             let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
             brownRockME.position = [1.0, 0, 0]
             brownRockME.name = "white_Rock"
@@ -62,7 +71,7 @@ struct ModelExample: View {
             
             // Create a bunch of rock objects
             for n in 0..<100 {
-                var rock = rock()
+                var rock = rock(texture: planetTexture)
                 rock.name = "rock_\(n)"
                 rock.position = SIMD3<Float>.random(in: -20...20)
                 rock.generateCollisionShapes(recursive: false)
@@ -71,9 +80,6 @@ struct ModelExample: View {
             
             // set which object to look at
             content.cameraTarget = redSunME
-            
-            // handle scroll wheel events
-            trackScrollWheel()
         } update: { content in
             // MARK: Get the camera and move it's position
             let entIdx = content.entities.first?.children.firstIndex { entity in
@@ -101,25 +107,27 @@ struct ModelExample: View {
         .gesture(TapGesture(count: 1).targetedToAnyEntity().onEnded { gesture in
             print("got tap for", gesture.entity.name)
         })
-        
+        .onAppear(perform:{
+            // handle scroll wheel events
+            NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                let ddelta: Float = Float(-event.scrollingDeltaY / 10)
+                reScale(ddelta: ddelta)
+                return event
+            }
+        })
     }
     
     // MARK: used to create a number of spheres, one at a time
-    func rock() -> ModelEntity {
+    func rock(texture: TextureResource?) -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.6))
-        let brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
-        let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
+        var brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
+//        if let texture {
+//            brownRockMaterial.color = PhysicallyBasedMaterial
+//                                  .BaseColor(texture: .init(texture))
+//        }
         
+        let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         return brownRockME
-    }
-    
-    // MARK: Unused point light source.  Need to find out how to remove or override the default lighting.
-    func getLightEntity() throws -> Entity {
-        let entity = Entity()
-        let pointLightComponent = PointLightComponent( cgColor: .init(red: 1, green: 1, blue: 1, alpha: 1), intensity: 500000, attenuationRadius: 2000.0 )
-        entity.components.set(pointLightComponent)
-        entity.position = .init(x: 0.6, y: 0, z: 0.6)
-        return entity
     }
     
     // MARK: Scale the view
@@ -128,27 +136,6 @@ struct ModelExample: View {
             let _ = rContent.entities.map { entity in
                 scale += ddelta
                 if scale < 0.6 { scale = 0.6 }
-            }
-        }
-    }
-    
-    func trackScrollWheel() {
-        if ticket == nil {
-            var didComplete = false
-            let newTicket = NSApp.publisher(for: \.currentEvent)
-                .filter { event in event?.type == .scrollWheel }
-                .sink(receiveCompletion: { _ in
-                    didComplete = true
-                    ticket = nil
-                }, receiveValue: { event in
-                    if let delta = event?.deltaY  {
-                        let ddelta: Float = Float(-delta / 10)
-                        reScale(ddelta: ddelta)
-                    }
-                })
-            
-            if !didComplete {
-                ticket = newTicket
             }
         }
     }
