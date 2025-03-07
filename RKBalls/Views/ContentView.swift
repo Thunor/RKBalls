@@ -15,11 +15,13 @@ struct ModelExample: View {
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
     @State private var redSunModelEntity: ModelEntity?
     @State private var rContent: RealityViewCameraContent?
-    @State var ticket: AnyCancellable? = nil
     @State var scale: Float = 1.0
     @State var planetTexture: TextureResource?
+    @State private var anchorEntity: AnchorEntity?
     
     var imageName: String = "Azul_4096"
+    
+    var flag: Bool = false
     
     var body: some View {
         RealityView { content in
@@ -28,16 +30,15 @@ struct ModelExample: View {
             let anchorEntity = AnchorEntity(world: [0, 0, 0])
             anchorEntity.components.set(InputTargetComponent())
             anchorEntity.name = "anchor"
+            content.add(anchorEntity)
             
             // Setup the camera
             content.camera = .virtual
-            content.add(anchorEntity)
+            
             camera.camera.fieldOfViewInDegrees = 60
             camera.name = "pcamera"
-            let cameraAnchor = anchorEntity
-            cameraAnchor.addChild(camera)
             camera.position = [0, 0, 10]
-            content.add(cameraAnchor)
+            anchorEntity.addChild(camera)
             
             rContent = content
             
@@ -69,9 +70,18 @@ struct ModelExample: View {
             brownRockME.generateCollisionShapes(recursive: false)
             anchorEntity.addChild(brownRockME)
             
+//            if let ringsted = try? await ModelEntity(named: "Ringsted") {
+//                ringsted.position = [2.0, 0, 0]
+//                ringsted.scale = [0.1, 0.1, 0.1]
+//                ringsted.generateCollisionShapes(recursive: false)
+//                ringsted.name = "Ringsted"
+//                anchorEntity.addChild(ringsted)
+//            }
+            
             // Create a bunch of rock objects
             for n in 0..<100 {
-                var rock = rock(texture: planetTexture)
+//                var rock = rock(texture: planetTexture)
+                let rock = rock(texture: nil)
                 rock.name = "rock_\(n)"
                 rock.position = SIMD3<Float>.random(in: -20...20)
                 rock.generateCollisionShapes(recursive: false)
@@ -80,6 +90,8 @@ struct ModelExample: View {
             
             // set which object to look at
             content.cameraTarget = redSunME
+            
+            self.anchorEntity = anchorEntity
         } update: { content in
             // MARK: Get the camera and move it's position
             let entIdx = content.entities.first?.children.firstIndex { entity in
@@ -103,14 +115,25 @@ struct ModelExample: View {
         }
         .gesture(TapGesture(count: 2).targetedToAnyEntity().onEnded { gesture in
             print("got double tap for", gesture.entity.name)
+
+            let pcamEntity = anchorEntity?.children.first { $0.name == "pcamera" }
+            let startPos = pcamEntity?.position ?? .zero
+            pcamEntity?.move(
+                to: Transform(translation: startPos - gesture.entity.position),
+                relativeTo: nil,
+                duration: 1.0)
+            
+//            anchorEntity?.move(to: Transform(translation: gesture.entity.position), relativeTo: nil, duration:  3.0)
+            camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
         })
         .gesture(TapGesture(count: 1).targetedToAnyEntity().onEnded { gesture in
             print("got tap for", gesture.entity.name)
+            camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
         })
         .onAppear(perform:{
             // handle scroll wheel events
             NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-                let ddelta: Float = Float(-event.scrollingDeltaY / 10)
+                let ddelta: Float = Float(-event.scrollingDeltaY / 100)
                 reScale(ddelta: ddelta)
                 return event
             }
@@ -121,11 +144,10 @@ struct ModelExample: View {
     func rock(texture: TextureResource?) -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.6))
         var brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
-//        if let texture {
-//            brownRockMaterial.color = PhysicallyBasedMaterial
-//                                  .BaseColor(texture: .init(texture))
-//        }
-        
+        if let texture {
+            brownRockMaterial.color = PhysicallyBasedMaterial
+                                  .BaseColor(texture: .init(texture))
+        }
         let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         return brownRockME
     }
@@ -141,6 +163,6 @@ struct ModelExample: View {
     }
 }
 
-#Preview {
-    ModelExample()
-}
+//#Preview {
+//    ModelExample()
+//}
