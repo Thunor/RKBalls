@@ -175,13 +175,16 @@ struct ModelExample: View {
                 print("camera.position:         \(camera.position)")
                 print("gesture.entity.position: \(gesture.entity.position)")
 
-                if anchorEntity?.position != nil {
-                    if gesture.entity.position != anchorEntity?.position {
-                        anchorEntity?.position = -gesture.entity.position
-                        camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
+                if var anchorPos = anchorEntity?.position {
+                    if gesture.entity.position != anchorPos {
+                        let relativeCamPos = anchorPos - camera.position
+                        anchorPos = -gesture.entity.position
+//                        camera.position += gesture.entity.position
+//                        camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
                         self.centerTarget = gesture.entity
                         self.infoTarget = gesture.entity
                     }
+                    anchorEntity?.position = anchorPos
                 }
             })
             .simultaneousGesture(TapGesture(count: 1).targetedToEntity(where: .has(AllowGestures.self)).onEnded({ gesture in

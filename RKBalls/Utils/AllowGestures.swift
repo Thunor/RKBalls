@@ -11,7 +11,5 @@ import Foundation
 
 /// An empty component we can use to tag entities that should support gestures.
 public struct AllowGestures: Component, Codable {
-    public init() {
-
-    }
+    public init() {}
 }
