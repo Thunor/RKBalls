@@ -14,7 +14,6 @@ import GLKit
 struct ModelExample: View {
     
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
-//    @State private var redSunModelEntity: ModelEntity?
     @State private var rContent: RealityViewCameraContent?
     @State var scale: Float = 1.0
     @State var planetTexture: TextureResource?
@@ -102,10 +101,10 @@ struct ModelExample: View {
                     anchorEntity.addChild(ringsted)
                 }
                 
-                // Create a bunch of rock objects
+                // Create a bunch of sphere objects
                 for n in 0..<1000 {
                     // can add a texture to a sphere, like so
-                    //                var rock = rock(texture: planetTexture)
+                    // var rock = rock(texture: planetTexture)
                     let rock = rock(texture: nil)
                     rock.name = "rock_\(n)"
                     rock.position = SIMD3<Float>.random(in: -20...20, using: &OnyxRandomGen.randGen)
@@ -120,13 +119,16 @@ struct ModelExample: View {
                 self.anchorEntity = anchorEntity
             } update: { content in
                 // MARK: Get the camera and move it's position
-                let entIdx = content.entities.first?.children.firstIndex { entity in
-                    entity.name == "pcamera"
+                
+                if let anchorPos = anchorEntity?.position {
+                    var oldCamOffset = camera.position - anchorPos
+//                    let camDir = calculateCameraDirection() * scale
+                    camera.position = oldCamOffset * scale/2.0  //camDir
                 }
-                if let entIdx {
-                    content.entities.first?.children[entIdx].position = SIMD3<Float>(scale,scale,scale)
-                }
+                
+//                camera.position = SIMD3<Float>(scale,scale,scale)
             }
+            // Experiment with changing the camera control method:
             //        .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
             
             .realityViewCameraControls(CameraControls.orbit)
@@ -144,33 +146,7 @@ struct ModelExample: View {
                 }
                 return .handled
             }
-//            .gesture(TapGesture(count: 2).targetedToAnyEntity().onEnded { gesture in
-//                
-//                print("got double tap for", gesture.entity.name)
-//                print("camera.position:         \(camera.position)")
-//                print("gesture.entity.position: \(gesture.entity.position)")
-//                
-//                if anchorEntity?.position != nil {
-//                    anchorEntity?.position = -gesture.entity.position
-//                    
-//                }
-//                //            if let ct = self.centerTarget, gesture.entity != ct {
-//                //                camera.move(
-//                //                    to: Transform(
-//                //                        translation: camera.position - gesture.entity.position
-//                //                    ),
-//                //                    relativeTo: nil,
-//                //                    duration: 2.0
-//                //                )
-//                camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
-//                //
-//                
-//                //            camera.position = SIMD3<Float>(scale + 0.01,scale + 0.01,scale + 0.01)
-//                //            }
-//                self.centerTarget = gesture.entity
-//            })
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
-//                print("got tap for", gesture.entity.
                 print("got double tap for:      \(gesture.entity.name)")
                 print("camera.position:         \(camera.position)")
                 print("gesture.entity.position: \(gesture.entity.position)")
@@ -179,12 +155,12 @@ struct ModelExample: View {
                     if gesture.entity.position != anchorPos {
                         let relativeCamPos = anchorPos - camera.position
                         anchorPos = -gesture.entity.position
-//                        camera.position += gesture.entity.position
-//                        camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
+                        camera.position = gesture.entity.position - relativeCamPos
                         self.centerTarget = gesture.entity
                         self.infoTarget = gesture.entity
+                        anchorEntity?.position = anchorPos
+                        camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
                     }
-                    anchorEntity?.position = anchorPos
                 }
             })
             .simultaneousGesture(TapGesture(count: 1).targetedToEntity(where: .has(AllowGestures.self)).onEnded({ gesture in
