@@ -120,13 +120,13 @@ struct ModelExample: View {
             } update: { content in
                 // MARK: Get the camera and move it's position
                 
-                if let anchorPos = anchorEntity?.position {
-                    var oldCamOffset = camera.position - anchorPos
-//                    let camDir = calculateCameraDirection() * scale
-                    camera.position = oldCamOffset * scale/2.0  //camDir
-                }
+//                if let anchorPos = anchorEntity?.position {
+//                    var oldCamOffset = camera.position - anchorPos
+////                    let camDir = calculateCameraDirection() * scale
+//                    camera.position = oldCamOffset * scale/2.0  //camDir
+//                }
                 
-//                camera.position = SIMD3<Float>(scale,scale,scale)
+                camera.position = SIMD3<Float>(scale,scale,scale)
             }
             // Experiment with changing the camera control method:
             //        .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
