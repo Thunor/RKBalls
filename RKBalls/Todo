@@ -1,0 +1,8 @@
+
+- Be able to load and save different maps
+- Use seeds for the random calls (you essentially save this)
+- New stars should be able to be generated automatically when scrolling to new areas.
+    - Don't generate new stars where stars already exist
+- rotating and zooming should work seemlessly
+- The data window should shrink while the view is changing, then grow again when stopped.
+

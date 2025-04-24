@@ -118,14 +118,7 @@ struct ModelExample: View {
                 
                 self.anchorEntity = anchorEntity
             } update: { content in
-                // MARK: Get the camera and move it's position
-                
-//                if let anchorPos = anchorEntity?.position {
-//                    var oldCamOffset = camera.position - anchorPos
-////                    let camDir = calculateCameraDirection() * scale
-//                    camera.position = oldCamOffset * scale/2.0  //camDir
-//                }
-                
+                debugPrint("scale: \(scale)")
                 camera.position = SIMD3<Float>(scale,scale,scale)
             }
             // Experiment with changing the camera control method:
@@ -150,16 +143,17 @@ struct ModelExample: View {
                 print("got double tap for:      \(gesture.entity.name)")
                 print("camera.position:         \(camera.position)")
                 print("gesture.entity.position: \(gesture.entity.position)")
+                print("__ scale: \(scale)")
 
-                if var anchorPos = anchorEntity?.position {
+                if var anchorPos = anchorEntity?.position(relativeTo: nil) {
                     if gesture.entity.position != anchorPos {
+                        scale = 1.0
                         let relativeCamPos = anchorPos - camera.position
                         anchorPos = -gesture.entity.position
                         camera.position = gesture.entity.position - relativeCamPos
                         self.centerTarget = gesture.entity
                         self.infoTarget = gesture.entity
                         anchorEntity?.position = anchorPos
-                        camera.look(at: gesture.entity.position, from: camera.position, relativeTo: nil)
                     }
                 }
             })
@@ -215,7 +209,8 @@ struct ModelExample: View {
     // MARK: used to create a number of spheres, one at a time
     func rock(texture: TextureResource?) -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.1, using: &OnyxRandomGen.randGen))
-        var brownRockMaterial = SimpleMaterial(color: .cyan, roughness: 0.8, isMetallic: false)
+        let randomCol = randomColor()
+        var brownRockMaterial = SimpleMaterial(color: randomCol, roughness: 0.8, isMetallic: false)
         if let texture {
             brownRockMaterial.color = PhysicallyBasedMaterial
                 .BaseColor(texture: .init(texture))
