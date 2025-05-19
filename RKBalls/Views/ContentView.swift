@@ -15,12 +15,15 @@ struct ModelExample: View {
     
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
     @State private var rContent: RealityViewCameraContent?
-    @State var scale: Float = 1.0
+    @State var zoomFactor: Float = 1.0
     @State var planetTexture: TextureResource?
     @State private var anchorEntity: AnchorEntity?
     @State private var centerTarget: Entity?
     @State private var infoTarget: Entity?
     @State private var useTilt: Bool = false
+    
+    // State to track pivot point
+    @State private var pivotPoint: SIMD3<Float> = .zero
     
     var imageName: String = "Azul_4096"
     
@@ -80,13 +83,19 @@ struct ModelExample: View {
                 // load an object and give it an orbit to follow
                 if let ringsted = try? await ModelEntity(named: "Ringsted") {
                     ringsted.position = [1.5, 0, 0]
-                    ringsted.scale = [0.1, 0.1, 0.1]
+                    ringsted.scale = [0.01, 0.01, 0.01]
                     ringsted.generateCollisionShapes(recursive: false)
                     ringsted.name = "Ringsted"
+                    let pivot = Entity()
+                    pivot.position = rockPlanetME.position
+                    pivot.addChild(ringsted)
+                    
+//                    let oAnim = from
                     
                     let orbit = OrbitAnimation(duration: 50.0,
-                                               axis: [0,1.0,0],
-                                               startTransform: ringsted.transform,
+                                               axis: [0,0,-1],
+//                                               startTransform: ringsted.transform,
+                                               startTransform: Transform(translation: pivot.position),
                                                spinClockwise: false,
                                                bindTarget: .transform,
                                                repeatMode: .repeat)
@@ -98,7 +107,7 @@ struct ModelExample: View {
                     ringsted.transform.rotation = simd_quatf(angle: .pi * 2.0, axis: SIMD3<Float>(x: 0, y: 1, z: 0))
                     ringsted.components[AllowGestures.self] = .init()
                     
-                    anchorEntity.addChild(ringsted)
+//                    anchorEntity.addChild(ringsted)
                 }
                 
                 // Create a bunch of sphere objects
@@ -118,44 +127,68 @@ struct ModelExample: View {
                 
                 self.anchorEntity = anchorEntity
             } update: { content in
-                debugPrint("scale: \(scale)")
-                camera.position = SIMD3<Float>(scale,scale,scale)
+//                debugPrint("camera.position: \(camera.position)")
+//                content.cameraTarget = centerTarget
+//                camera.position = SIMD3<Float>(scale,scale,scale)
+                
+                // Update existing content when view updates
+                if let starField = content.entities.first {
+                    // Apply zoom transform around pivot point
+                    updateStarFieldTransform(starField)
+                }
             }
             // Experiment with changing the camera control method:
-            //        .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
+                    .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
             
-            .realityViewCameraControls(CameraControls.orbit)
+//            .realityViewCameraControls(CameraControls.orbit)
             .background(Color.black)
-            .onKeyPress { KeyPress in
-                if KeyPress.key == "w" {
-                    if scale > 0.7 {
-                        scale -= 0.1
-                    }
-                } else if KeyPress.key == "s" {
-                    scale += 0.1
-                }
-                if KeyPress.key == "z" {
-                    useTilt.toggle()
-                }
-                return .handled
-            }
+//            .onKeyPress { KeyPress in
+//                if KeyPress.key == "w" {
+//                    if scale > 0.7 {
+//                        scale -= 0.1
+//                    }
+//                } else if KeyPress.key == "s" {
+//                    scale += 0.1
+//                }
+//                if KeyPress.key == "z" {
+//                    useTilt.toggle()
+//                }
+//                return .handled
+//            }
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
-                print("got double tap for:      \(gesture.entity.name)")
-                print("camera.position:         \(camera.position)")
-                print("gesture.entity.position: \(gesture.entity.position)")
-                print("__ scale: \(scale)")
 
-                if var anchorPos = anchorEntity?.position(relativeTo: nil) {
-                    if gesture.entity.position != anchorPos {
-                        scale = 1.0
-                        let relativeCamPos = anchorPos - camera.position
-                        anchorPos = -gesture.entity.position
-                        camera.position = gesture.entity.position - relativeCamPos
-                        self.centerTarget = gesture.entity
-                        self.infoTarget = gesture.entity
-                        anchorEntity?.position = anchorPos
-                    }
+                if let hitEntity = gesture.entity as? ModelEntity {
+                    pivotPoint = hitEntity.position
+//                    selectedStarId = hitEntity.id
                 }
+//                if var anchorPos = anchorEntity?.position(relativeTo: nil) {
+//                    if gesture.entity.position != anchorPos {
+////                        scale = 1.0
+//                        // need to zoom into a specific distance
+//                        
+////                        let relativeCamPos = anchorPos - camera.position
+////                        camera.position = gesture.entity.position - relativeCamPos
+////                        
+//////                        anchorPos = -gesture.entity.position
+////                        self.centerTarget = gesture.entity
+////                        self.infoTarget = gesture.entity
+////                        anchorEntity?.position = -anchorPos
+//                        
+//                        print("++ anchorPos:               \(anchorPos)")
+////                        debugPrint("gesture.entity.position: \(gesture.entity.position)")
+////                        debugPrint("old camera.position:     \(camera.position)")
+//                        
+//                        let relativeCamPos = anchorPos - camera.position
+//                        anchorPos = -gesture.entity.position
+////                        camera.position = gesture.entity.position - relativeCamPos
+//                        self.centerTarget = gesture.entity
+//                        self.infoTarget = gesture.entity
+////                        anchorEntity?.position = anchorPos
+//                        
+//                        print("++ camera.position:     \(camera.position)")
+//                        print("++ anchorEntity?.position:  \(anchorEntity?.position)")
+//                    }
+//                }
             })
             .simultaneousGesture(TapGesture(count: 1).targetedToEntity(where: .has(AllowGestures.self)).onEnded({ gesture in
                 print("got tap for", gesture.entity.name)
@@ -163,11 +196,11 @@ struct ModelExample: View {
             }) )
             .onAppear(perform:{
                 // handle scroll wheel events
-                NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-                    let ddelta: Float = Float(-event.scrollingDeltaY / 100)
-                    reScale(ddelta: ddelta)
-                    return event
-                }
+//                NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+//                    let ddelta: Float = Float(-event.scrollingDeltaY / 100)
+//                    reScale(ddelta: ddelta)
+//                    return event
+//                }
             })
             
             HStack {
@@ -175,7 +208,7 @@ struct ModelExample: View {
                 HStack{
                     VStack {
                         DataView(entity: $infoTarget)
-                        Text("Scale: \(scale)")
+                        Text("Scale: \(zoomFactor)")
                         Text("Use Tilt: \(useTilt)")
                         Spacer()
                     }
@@ -187,6 +220,26 @@ struct ModelExample: View {
                     .fill(Color.controlBackground))
                 .padding(EdgeInsets(top: 10, leading: 10, bottom: 10, trailing: 10))
             }
+        }
+    }
+    
+    private func updateStarFieldTransform(_ entity: Entity) {
+        // First, reset any existing transform
+        entity.transform = .identity
+        
+        // If we have a pivot point, translate to center on it
+        if pivotPoint != .zero {
+            // Move pivot point to origin
+            entity.transform.translation = -pivotPoint
+            
+            // Apply zoom
+            entity.transform.scale = .init(repeating: zoomFactor)
+            
+            // Translate back so pivot point is centered
+            entity.move(to: float4x4(), relativeTo: nil)
+        } else {
+            // Just apply zoom at origin if no pivot
+            entity.transform.scale = .init(repeating: zoomFactor)
         }
     }
     
@@ -211,6 +264,7 @@ struct ModelExample: View {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.1, using: &OnyxRandomGen.randGen))
         let randomCol = randomColor()
         var brownRockMaterial = SimpleMaterial(color: randomCol, roughness: 0.8, isMetallic: false)
+//        brownRockMaterial.
         if let texture {
             brownRockMaterial.color = PhysicallyBasedMaterial
                 .BaseColor(texture: .init(texture))
@@ -220,14 +274,14 @@ struct ModelExample: View {
     }
     
     // MARK: Scale the view
-    func reScale(ddelta: Float) {
-        if let rContent = self.rContent {
-            let _ = rContent.entities.map { entity in
-                scale += ddelta
-                if scale < 0.6 { scale = 0.6 }
-            }
-        }
-    }
+//    func reScale(ddelta: Float) {
+//        if let rContent = self.rContent {
+//            let _ = rContent.entities.map { entity in
+//                scale += ddelta
+//                if scale < 0.6 { scale = 0.6 }
+//            }
+//        }
+//    }
     
     // SIMD3<Float>(scale + 0.01,scale + 0.01,scale + 0.01)
     func calculateCameraDirection(/*cameraNode: SCNNode*/) -> SIMD3<Float> {
