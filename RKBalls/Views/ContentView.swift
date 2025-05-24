@@ -222,21 +222,19 @@ struct ModelExample: View {
             }
         }
     }
-    
+  
     private func updateStarFieldTransform(_ entity: Entity) {
-        // First, reset any existing transform
+        // Reset transform
         entity.transform = .identity
-        
-        // If we have a pivot point, translate to center on it
+
+        // Only apply if a star is selected
         if pivotPoint != .zero {
-            // Move pivot point to origin
-            entity.transform.translation = -pivotPoint
-            
-            // Apply zoom
-            entity.transform.scale = .init(repeating: zoomFactor)
-            
-            // Translate back so pivot point is centered
-            entity.move(to: float4x4(), relativeTo: nil)
+            // 1. Move pivot point to origin
+            let toOrigin = Transform(translation: -pivotPoint)
+            // 2. Scale around origin
+            let scale = Transform(scale: SIMD3<Float>(repeating: zoomFactor))
+            // Combine transforms: T(pivot) * S * T(-pivot)
+            entity.transform.matrix = scale.matrix * toOrigin.matrix
         } else {
             // Just apply zoom at origin if no pivot
             entity.transform.scale = .init(repeating: zoomFactor)
