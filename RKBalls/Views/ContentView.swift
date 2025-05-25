@@ -12,7 +12,6 @@ import GLKit
 
 
 struct ModelExample: View {
-    
     @State var camera: PerspectiveCamera =  PerspectiveCamera()
     @State private var rContent: RealityViewCameraContent?
     @State var zoomFactor: Float = 1.0
@@ -90,8 +89,6 @@ struct ModelExample: View {
                     pivot.position = rockPlanetME.position
                     pivot.addChild(ringsted)
                     
-//                    let oAnim = from
-                    
                     let orbit = OrbitAnimation(duration: 50.0,
                                                axis: [0,0,-1],
 //                                               startTransform: ringsted.transform,
@@ -106,8 +103,6 @@ struct ModelExample: View {
                     
                     ringsted.transform.rotation = simd_quatf(angle: .pi * 2.0, axis: SIMD3<Float>(x: 0, y: 1, z: 0))
                     ringsted.components[AllowGestures.self] = .init()
-                    
-//                    anchorEntity.addChild(ringsted)
                 }
                 
                 // Create a bunch of sphere objects
@@ -127,10 +122,6 @@ struct ModelExample: View {
                 
                 self.anchorEntity = anchorEntity
             } update: { content in
-//                debugPrint("camera.position: \(camera.position)")
-//                content.cameraTarget = centerTarget
-//                camera.position = SIMD3<Float>(scale,scale,scale)
-                
                 // Update existing content when view updates
                 if let starField = content.entities.first {
                     // Apply zoom transform around pivot point
@@ -138,70 +129,22 @@ struct ModelExample: View {
                 }
             }
             // Experiment with changing the camera control method:
-                    .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
-            
-//            .realityViewCameraControls(CameraControls.orbit)
+            .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
             .background(Color.black)
-//            .onKeyPress { KeyPress in
-//                if KeyPress.key == "w" {
-//                    if scale > 0.7 {
-//                        scale -= 0.1
-//                    }
-//                } else if KeyPress.key == "s" {
-//                    scale += 0.1
-//                }
-//                if KeyPress.key == "z" {
-//                    useTilt.toggle()
-//                }
-//                return .handled
-//            }
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
-
                 if let hitEntity = gesture.entity as? ModelEntity {
                     pivotPoint = hitEntity.position
 //                    selectedStarId = hitEntity.id
                 }
-//                if var anchorPos = anchorEntity?.position(relativeTo: nil) {
-//                    if gesture.entity.position != anchorPos {
-////                        scale = 1.0
-//                        // need to zoom into a specific distance
-//                        
-////                        let relativeCamPos = anchorPos - camera.position
-////                        camera.position = gesture.entity.position - relativeCamPos
-////                        
-//////                        anchorPos = -gesture.entity.position
-////                        self.centerTarget = gesture.entity
-////                        self.infoTarget = gesture.entity
-////                        anchorEntity?.position = -anchorPos
-//                        
-//                        print("++ anchorPos:               \(anchorPos)")
-////                        debugPrint("gesture.entity.position: \(gesture.entity.position)")
-////                        debugPrint("old camera.position:     \(camera.position)")
-//                        
-//                        let relativeCamPos = anchorPos - camera.position
-//                        anchorPos = -gesture.entity.position
-////                        camera.position = gesture.entity.position - relativeCamPos
-//                        self.centerTarget = gesture.entity
-//                        self.infoTarget = gesture.entity
-////                        anchorEntity?.position = anchorPos
-//                        
-//                        print("++ camera.position:     \(camera.position)")
-//                        print("++ anchorEntity?.position:  \(anchorEntity?.position)")
-//                    }
-//                }
             })
             .simultaneousGesture(TapGesture(count: 1).targetedToEntity(where: .has(AllowGestures.self)).onEnded({ gesture in
                 print("got tap for", gesture.entity.name)
                 infoTarget = gesture.entity
-            }) )
-            .onAppear(perform:{
-                // handle scroll wheel events
-//                NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-//                    let ddelta: Float = Float(-event.scrollingDeltaY / 100)
-//                    reScale(ddelta: ddelta)
-//                    return event
-//                }
-            })
+            }))
+//            .onAppear(perform:{
+//            })
+            
+            Color.clear.frame(width: 0, height: 0).id(zoomFactor)
             
             HStack {
                 Spacer()
@@ -260,59 +203,13 @@ struct ModelExample: View {
     // MARK: used to create a number of spheres, one at a time
     func rock(texture: TextureResource?) -> ModelEntity {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.1, using: &OnyxRandomGen.randGen))
-        let randomCol = randomColor()
-        var brownRockMaterial = SimpleMaterial(color: randomCol, roughness: 0.8, isMetallic: false)
-//        brownRockMaterial.
-        if let texture {
-            brownRockMaterial.color = PhysicallyBasedMaterial
-                .BaseColor(texture: .init(texture))
-        }
+        var brownRockMaterial = SimpleMaterial()
+        // Make different colored stars for visual variety
+        let colors: [Color] = [.white, .yellow, .cyan, .orange]
+        brownRockMaterial.color = .init(tint: NSColor(colors[Int.random(in: 0...3)]), texture: nil)
+        brownRockMaterial.__emissive = .color(NSColor(colors[Int.random(in: 0...3)]).cgColor)
         let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         return brownRockME
-    }
-    
-    // MARK: Scale the view
-//    func reScale(ddelta: Float) {
-//        if let rContent = self.rContent {
-//            let _ = rContent.entities.map { entity in
-//                scale += ddelta
-//                if scale < 0.6 { scale = 0.6 }
-//            }
-//        }
-//    }
-    
-    // SIMD3<Float>(scale + 0.01,scale + 0.01,scale + 0.01)
-    func calculateCameraDirection(/*cameraNode: SCNNode*/) -> SIMD3<Float> {
-        let x = -camera.transform.rotation.vector.x
-        let y = -camera.transform.rotation.vector.y
-        let z = -camera.transform.rotation.vector.z
-        let w = -camera.transform.rotation.vector.w
-        
-        let xy = x * y
-        let xz = x * z
-        let yx = y * x
-        let yz = y * z
-        let zx = z * x
-        let zy = z * y
-        let cw1 = 1 - cos(w)
-        
-        let cameraRotationMatrix = GLKMatrix3Make(Float(cos(w) + pow(x, 2) * cw1),
-                                                  Float(xy * cw1 - z * sin(w)),
-                                                  Float(xz * cw1 + y*sin(w)),
-                                                  
-                                                  Float(yx * cw1 + z*sin(w)),
-                                                  Float(cos(w) + pow(y, 2) * cw1),
-                                                  Float(yz * cw1 - x*sin(w)),
-                                                  
-                                                  Float(zx * cw1 - y*sin(w)),
-                                                  Float(zy * cw1 + x*sin(w)),
-                                                  Float(cos(w) + pow(z, 2) * cw1))
-        
-        let cameraDirection = GLKMatrix3MultiplyVector3(cameraRotationMatrix, GLKVector3Make(0.0, 0.0, -1.0))
-        //        simd_float3(from: cameraDirection as! Decoder)
-        let camDirectionSIMD3 = simd_float3(x: cameraDirection.x, y: cameraDirection.y, z: cameraDirection.z)
-        //        return SCNVector3FromGLKVector3(cameraDirection)
-        return camDirectionSIMD3
     }
 }
 
