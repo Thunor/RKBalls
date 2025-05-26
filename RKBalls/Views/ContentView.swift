@@ -40,7 +40,6 @@ struct ModelExample: View {
     
     var body: some View {
         ZStack {
-            
             RealityView { content in
                 
                 // Setup the anchor
@@ -127,6 +126,7 @@ struct ModelExample: View {
                 
                 self.anchorEntity = anchorEntity
             } update: { content in
+                _ = zoomFactor
                 // Update existing content when view updates
                 if let starField = content.entities.first {
                     // Apply zoom transform around pivot point
@@ -164,24 +164,19 @@ struct ModelExample: View {
                         dragActive = false
                     }
             )
-//            .onKeyPress(characters: .letters) { key in
-//                debugPrint("key: \(key)")
-//                switch key.key {
-//                    case "a":
-//                        debugPrint("pressed a")
-//                        rotAngleY += 10.0
-//                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
-//                        
-//                    case "d":
-//                        debugPrint("pressed d")
-//                        rotAngleY -= 10.0
-//                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
-//                    default:
-//                        debugPrint("pressed \(key.key)")
-//                }
-//                return .handled
-//            }
+            .onAppear(perform:{
+                // handle scroll wheel events
+                NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                    //                    let ddelta: Float = Float(-event.scrollingDeltaY / 10)
+                    //                    reScale(ddelta: ddelta)
+                    let zoomStep: Float = 0.05
+                    let newZoom = zoomFactor - Float(event.scrollingDeltaY) * zoomStep
+                    zoomFactor = max(0.1, min(newZoom, 10.0))
+                    return event
+                }
+            })
             
+
             HStack {
                 Spacer()
                 HStack{
@@ -256,6 +251,7 @@ struct ModelExample: View {
         return brownRockME
     }
 }
+
 
 
 #Preview {
