@@ -15,6 +15,7 @@ struct DataView: View {
         
         VStack(alignment: .leading, spacing: 5, content: {
             Text(entity?.name ?? "..")
+//            Text(entity.materials.description)
         })
     }
 }

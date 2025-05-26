@@ -20,6 +20,9 @@ struct ModelExample: View {
     @State private var centerTarget: Entity?
     @State private var infoTarget: Entity?
     @State private var useTilt: Bool = false
+    @State private var rotAngleY: Float = 0.0
+//    @State private var rotAngleX: Float = 0.0
+    @State private var prevLocationWidth: CGFloat = 0.0
     
     // State to track pivot point
     @State private var pivotPoint: SIMD3<Float> = .zero
@@ -44,7 +47,7 @@ struct ModelExample: View {
                 content.add(anchorEntity)
                 
                 // Setup the camera
-                content.camera = .virtual
+//                content.camera = .virtual
                 camera = setupCamera()
                 anchorEntity.addChild(camera)
                 
@@ -89,19 +92,21 @@ struct ModelExample: View {
                     pivot.position = rockPlanetME.position
                     pivot.addChild(ringsted)
                     
-                    let orbit = OrbitAnimation(duration: 50.0,
-                                               axis: [0,0,-1],
-//                                               startTransform: ringsted.transform,
-                                               startTransform: Transform(translation: pivot.position),
-                                               spinClockwise: false,
-                                               bindTarget: .transform,
-                                               repeatMode: .repeat)
+                    let orbit = OrbitAnimation(
+                        duration: 50.0,
+                        startTransform: Transform(translation: pivot.position),
+                        spinClockwise: false,
+                        bindTarget: .transform,
+                        repeatMode: .repeat)
                     
                     if let animation = try? AnimationResource.generate(with: orbit) {
                         ringsted.playAnimation(animation)
                     }
                     
-                    ringsted.transform.rotation = simd_quatf(angle: .pi * 2.0, axis: SIMD3<Float>(x: 0, y: 1, z: 0))
+                    ringsted.transform.rotation = simd_quatf(
+                        angle: .pi * 2.0,
+                        axis: SIMD3<Float>(x: 0, y: 1, z: 0)
+                    )
                     ringsted.components[AllowGestures.self] = .init()
                 }
                 
@@ -127,9 +132,10 @@ struct ModelExample: View {
                     // Apply zoom transform around pivot point
                     updateStarFieldTransform(starField)
                 }
+                updateCameraTransform(camera)
             }
             // Experiment with changing the camera control method:
-            .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
+//            .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
             .background(Color.black)
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
                 if let hitEntity = gesture.entity as? ModelEntity {
@@ -141,10 +147,42 @@ struct ModelExample: View {
                 print("got tap for", gesture.entity.name)
                 infoTarget = gesture.entity
             }))
-//            .onAppear(perform:{
-//            })
+            .gesture(
+                DragGesture()
+                    .onChanged { value in
+                        // Update rotation angle based on horizontal drag
+                        if prevLocationWidth != 0.0 {
+                            let deltaX = (value.location.x - prevLocationWidth) * -1
+                            rotAngleY += Float(deltaX) * 0.1
+                            rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+                        }
+                        prevLocationWidth = value.location.x
+                    }
+                    .onEnded({ value in
+                        prevLocationWidth = 0.0
+                    })
+            )
+            .onKeyPress(characters: .letters) { key in
+                debugPrint("key: \(key)")
+                switch key.key {
+                    case "a":
+                        debugPrint("pressed a")
+                        rotAngleY += 10.0
+                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+//                        updateCameraTransform(camera)
+                        
+                    case "d":
+                        debugPrint("pressed d")
+                        rotAngleY -= 10.0
+                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+//                        updateCameraTransform(camera)
+                    default:
+                        debugPrint("pressed \(key.key)")
+                }
+                return .handled
+            }
             
-            Color.clear.frame(width: 0, height: 0).id(zoomFactor)
+//            Color.clear.frame(width: 0, height: 0).id(zoomFactor)
             
             HStack {
                 Spacer()
@@ -153,6 +191,7 @@ struct ModelExample: View {
                         DataView(entity: $infoTarget)
                         Text("Scale: \(zoomFactor)")
                         Text("Use Tilt: \(useTilt)")
+                        Text("Rot Angle: \(rotAngleY)")
                         Spacer()
                     }
                 }
@@ -169,19 +208,33 @@ struct ModelExample: View {
     private func updateStarFieldTransform(_ entity: Entity) {
         // Reset transform
         entity.transform = .identity
-
         // Only apply if a star is selected
         if pivotPoint != .zero {
             // 1. Move pivot point to origin
             let toOrigin = Transform(translation: -pivotPoint)
             // 2. Scale around origin
             let scale = Transform(scale: SIMD3<Float>(repeating: zoomFactor))
+
             // Combine transforms: T(pivot) * S * T(-pivot)
             entity.transform.matrix = scale.matrix * toOrigin.matrix
         } else {
             // Just apply zoom at origin if no pivot
-            entity.transform.scale = .init(repeating: zoomFactor)
+            entity.transform.matrix = Transform(scale: SIMD3<Float>(repeating: zoomFactor)).matrix
         }
+    }
+    
+    private func updateCameraTransform(_ camera: Entity) {
+        // Set orbit radius (distance from target)
+        let radius: Float = 20.0
+        // Calculate new camera position using rotAngle (in degrees)
+        let angleRad = rotAngleY * (.pi / 180)
+        let x = radius * sin(angleRad)
+        let z = radius * cos(angleRad)
+        let y: Float = 0 // Keep camera level; adjust for vertical orbit if needed
+
+        camera.position = [x, y, z] * zoomFactor
+        // Look at the origin (or pivotPoint if you want to orbit a selected object)
+        camera.look(at: pivotPoint, from: camera.position, relativeTo: nil)
     }
     
     func setupAnchor() -> AnchorEntity {
@@ -205,14 +258,16 @@ struct ModelExample: View {
         let brownRock = MeshResource.generateSphere(radius: Float.random(in: 0.05...0.1, using: &OnyxRandomGen.randGen))
         var brownRockMaterial = SimpleMaterial()
         // Make different colored stars for visual variety
-        let colors: [Color] = [.white, .yellow, .cyan, .orange]
-        brownRockMaterial.color = .init(tint: NSColor(colors[Int.random(in: 0...3)]), texture: nil)
-        brownRockMaterial.__emissive = .color(NSColor(colors[Int.random(in: 0...3)]).cgColor)
+        let colors: [Color] = [.white, .yellow, .cyan, .orange, .red]
+        let randomColor = colors[Int.random(in: 0...4)]
+        brownRockMaterial.color = .init(tint: NSColor(randomColor), texture: nil)
+        brownRockMaterial.__emissive = .color(NSColor(randomColor).cgColor)
         let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         return brownRockME
     }
 }
 
-//#Preview {
-//    ModelExample()
-//}
+
+#Preview {
+    ModelExample()
+}
