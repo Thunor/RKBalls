@@ -19,10 +19,11 @@ struct ModelExample: View {
     @State private var anchorEntity: AnchorEntity?
     @State private var centerTarget: Entity?
     @State private var infoTarget: Entity?
-    @State private var useTilt: Bool = false
     @State private var rotAngleY: Float = 0.0
-//    @State private var rotAngleX: Float = 0.0
-    @State private var prevLocationWidth: CGFloat = 0.0
+    @State private var rotAngleX: Float = 0.0
+    @State private var dragStartAngleY: Float = 0.0
+    @State private var dragStartAngleX: Float = 0.0
+    @State private var dragActive = false
     
     // State to track pivot point
     @State private var pivotPoint: SIMD3<Float> = .zero
@@ -45,9 +46,8 @@ struct ModelExample: View {
                 // Setup the anchor
                 let anchorEntity = setupAnchor()
                 content.add(anchorEntity)
-                
+
                 // Setup the camera
-//                content.camera = .virtual
                 camera = setupCamera()
                 anchorEntity.addChild(camera)
                 
@@ -134,8 +134,6 @@ struct ModelExample: View {
                 }
                 updateCameraTransform(camera)
             }
-            // Experiment with changing the camera control method:
-//            .realityViewCameraControls(useTilt ? CameraControls.tilt : CameraControls.orbit)
             .background(Color.black)
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
                 if let hitEntity = gesture.entity as? ModelEntity {
@@ -150,39 +148,39 @@ struct ModelExample: View {
             .gesture(
                 DragGesture()
                     .onChanged { value in
-                        // Update rotation angle based on horizontal drag
-                        if prevLocationWidth != 0.0 {
-                            let deltaX = (value.location.x - prevLocationWidth) * -1
-                            rotAngleY += Float(deltaX) * 0.1
-                            rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+                        if !dragActive {
+                            dragStartAngleY = rotAngleY
+                            dragStartAngleX = rotAngleX
+                            dragActive = true
                         }
-                        prevLocationWidth = value.location.x
+                        // Horizontal drag: Y axis rotation (azimuth)
+                        rotAngleY = dragStartAngleY + Float(value.translation.width) * -0.2
+                        rotAngleY.formTruncatingRemainder(dividingBy: 360)
+                        // Vertical drag: X axis rotation (elevation)
+                        rotAngleX = dragStartAngleX + Float(value.translation.height) * 0.2
+                        rotAngleX = min(max(rotAngleX, -89), 89)
                     }
-                    .onEnded({ value in
-                        prevLocationWidth = 0.0
-                    })
+                    .onEnded { _ in
+                        dragActive = false
+                    }
             )
-            .onKeyPress(characters: .letters) { key in
-                debugPrint("key: \(key)")
-                switch key.key {
-                    case "a":
-                        debugPrint("pressed a")
-                        rotAngleY += 10.0
-                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
-//                        updateCameraTransform(camera)
-                        
-                    case "d":
-                        debugPrint("pressed d")
-                        rotAngleY -= 10.0
-                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
-//                        updateCameraTransform(camera)
-                    default:
-                        debugPrint("pressed \(key.key)")
-                }
-                return .handled
-            }
-            
-//            Color.clear.frame(width: 0, height: 0).id(zoomFactor)
+//            .onKeyPress(characters: .letters) { key in
+//                debugPrint("key: \(key)")
+//                switch key.key {
+//                    case "a":
+//                        debugPrint("pressed a")
+//                        rotAngleY += 10.0
+//                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+//                        
+//                    case "d":
+//                        debugPrint("pressed d")
+//                        rotAngleY -= 10.0
+//                        rotAngleY.formTruncatingRemainder(dividingBy: 360) // Keep within 0-360 degrees
+//                    default:
+//                        debugPrint("pressed \(key.key)")
+//                }
+//                return .handled
+//            }
             
             HStack {
                 Spacer()
@@ -190,8 +188,7 @@ struct ModelExample: View {
                     VStack {
                         DataView(entity: $infoTarget)
                         Text("Scale: \(zoomFactor)")
-                        Text("Use Tilt: \(useTilt)")
-                        Text("Rot Angle: \(rotAngleY)")
+                        Text("Rot Angle: \(rotAngleY), \(rotAngleX)")
                         Spacer()
                     }
                 }
@@ -224,16 +221,13 @@ struct ModelExample: View {
     }
     
     private func updateCameraTransform(_ camera: Entity) {
-        // Set orbit radius (distance from target)
-        let radius: Float = 20.0
-        // Calculate new camera position using rotAngle (in degrees)
-        let angleRad = rotAngleY * (.pi / 180)
-        let x = radius * sin(angleRad)
-        let z = radius * cos(angleRad)
-        let y: Float = 0 // Keep camera level; adjust for vertical orbit if needed
-
-        camera.position = [x, y, z] * zoomFactor
-        // Look at the origin (or pivotPoint if you want to orbit a selected object)
+        let radius: Float = 20.0 * zoomFactor
+        let azimuth = rotAngleY * (.pi / 180)
+        let elevation = rotAngleX * (.pi / 180)
+        let x = radius * cos(elevation) * sin(azimuth)
+        let y = radius * sin(elevation)
+        let z = radius * cos(elevation) * cos(azimuth)
+        camera.position = [x, y, z] + pivotPoint
         camera.look(at: pivotPoint, from: camera.position, relativeTo: nil)
     }
     
