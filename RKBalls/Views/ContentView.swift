@@ -137,7 +137,7 @@ struct ModelExample: View {
             .background(Color.black)
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
                 if let hitEntity = gesture.entity as? ModelEntity {
-                    pivotPoint = hitEntity.position
+                    pivotPoint = hitEntity.position(relativeTo: nil)
 //                    selectedStarId = hitEntity.id
                 }
             })
@@ -203,19 +203,15 @@ struct ModelExample: View {
     }
   
     private func updateStarFieldTransform(_ entity: Entity) {
-        // Reset transform
         entity.transform = .identity
-        // Only apply if a star is selected
         if pivotPoint != .zero {
-            // 1. Move pivot point to origin
+            // Move pivot to origin, scale, then move back
             let toOrigin = Transform(translation: -pivotPoint)
-            // 2. Scale around origin
             let scale = Transform(scale: SIMD3<Float>(repeating: zoomFactor))
-
-            // Combine transforms: T(pivot) * S * T(-pivot)
-            entity.transform.matrix = scale.matrix * toOrigin.matrix
+            let fromOrigin = Transform(translation: pivotPoint)
+            // Correct order: T(pivot) * S * T(-pivot)
+            entity.transform.matrix = fromOrigin.matrix * scale.matrix * toOrigin.matrix
         } else {
-            // Just apply zoom at origin if no pivot
             entity.transform.matrix = Transform(scale: SIMD3<Float>(repeating: zoomFactor)).matrix
         }
     }
