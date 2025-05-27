@@ -24,6 +24,7 @@ struct ModelExample: View {
     @State private var dragStartAngleY: Float = 0.0
     @State private var dragStartAngleX: Float = 0.0
     @State private var dragActive = false
+    @State private var isZooming = false
     
     // State to track pivot point
     @State private var pivotPoint: SIMD3<Float> = .zero
@@ -126,15 +127,22 @@ struct ModelExample: View {
                 
                 self.anchorEntity = anchorEntity
             } update: { content in
-                _ = zoomFactor
                 // Update existing content when view updates
                 if let starField = content.entities.first {
                     // Apply zoom transform around pivot point
-                    updateStarFieldTransform(starField)
+                    updateStarFieldTransform(starField, zoomFactor: isZooming ? zoomFactor : zoomFactor )
                 }
                 updateCameraTransform(camera)
             }
             .background(Color.black)
+//            .onChange(of: zoomFactor, { oldValue, newValue in
+//                //
+//                if let starField = rContent?.entities.first {
+//                    // Apply zoom transform around pivot point
+//                    updateStarFieldTransform(starField, zoomFactor: zoomFactor)
+//                }
+//                updateCameraTransform(camera, zoomFactor: zoomFactor)
+//            })
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
                 if let hitEntity = gesture.entity as? ModelEntity {
                     pivotPoint = hitEntity.position(relativeTo: nil)
@@ -169,12 +177,14 @@ struct ModelExample: View {
                 NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
                     //                    let ddelta: Float = Float(-event.scrollingDeltaY / 10)
                     //                    reScale(ddelta: ddelta)
-                    let zoomStep: Float = 0.05
+                    let zoomStep: Float = -0.05
                     let newZoom = zoomFactor - Float(event.scrollingDeltaY) * zoomStep
                     zoomFactor = max(0.1, min(newZoom, 10.0))
+                    isZooming = true
                     return event
                 }
             })
+//            .id(zoomFactor)
             
 
             HStack {
@@ -197,7 +207,7 @@ struct ModelExample: View {
         }
     }
   
-    private func updateStarFieldTransform(_ entity: Entity) {
+    private func updateStarFieldTransform(_ entity: Entity, zoomFactor: Float) {
         entity.transform = .identity
         if pivotPoint != .zero {
             // Move pivot to origin, scale, then move back
@@ -212,7 +222,7 @@ struct ModelExample: View {
     }
     
     private func updateCameraTransform(_ camera: Entity) {
-        let radius: Float = 20.0 * zoomFactor
+        let radius: Float = 20.0 //* zoomFactor
         let azimuth = rotAngleY * (.pi / 180)
         let elevation = rotAngleX * (.pi / 180)
         let x = radius * cos(elevation) * sin(azimuth)
