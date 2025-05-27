@@ -82,6 +82,11 @@ struct ModelExample: View {
                 rockPlanetME.components[AllowGestures.self] = .init()
                 anchorEntity.addChild(rockPlanetME)
                 
+                let torusMesh = generateThinTorus()
+                let material = SimpleMaterial(color: .yellow, isMetallic: false)
+                let torusEntity = ModelEntity(mesh: torusMesh, materials: [material])
+                redSunME.addChild(torusEntity)
+                
                 // load an object and give it an orbit to follow
                 if let ringsted = try? await ModelEntity(named: "Ringsted") {
                     ringsted.position = [1.5, 0, 0]
@@ -251,6 +256,53 @@ struct ModelExample: View {
         let brownRockME = ModelEntity(mesh: brownRock, materials: [brownRockMaterial])
         return brownRockME
     }
+    
+    // MARK: used to create a thin torus mesh
+
+    func generateThinTorus(majorRadius: Float = 1.0, minorRadius: Float = 0.01, majorSegments: Int = 64, minorSegments: Int = 16) -> MeshResource {
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var indices: [UInt32] = []
+
+        for i in 0..<majorSegments {
+            let theta = Float(i) / Float(majorSegments) * 2 * .pi
+            let cosTheta = cos(theta)
+            let sinTheta = sin(theta)
+            let center = SIMD3<Float>(majorRadius * cosTheta, majorRadius * sinTheta, 0)
+            for j in 0..<minorSegments {
+                let phi = Float(j) / Float(minorSegments) * 2 * .pi
+                let cosPhi = cos(phi)
+                let sinPhi = sin(phi)
+                let normal = SIMD3<Float>(cosTheta * cosPhi, sinTheta * cosPhi, sinPhi)
+                let position = center + normal * minorRadius
+                positions.append(position)
+                normals.append(normal)
+            }
+        }
+
+        for i in 0..<majorSegments {
+            for j in 0..<minorSegments {
+                let nextI = (i + 1) % majorSegments
+                let nextJ = (j + 1) % minorSegments
+                let a = UInt32(i * minorSegments + j)
+                let b = UInt32(nextI * minorSegments + j)
+                let c = UInt32(nextI * minorSegments + nextJ)
+                let d = UInt32(i * minorSegments + nextJ)
+                indices.append(contentsOf: [a, b, d, b, c, d])
+            }
+        }
+
+        var descriptor = MeshDescriptor()
+        descriptor.positions = MeshBuffer(positions)
+        descriptor.normals = MeshBuffer(normals)
+        descriptor.primitives = .triangles(indices)
+        return try! MeshResource.generate(from: [descriptor])
+    }
+
+    // Usage:
+//    let torusMesh = generateThinTorus()
+//    let material = SimpleMaterial(color: .yellow, isMetallic: true)
+//    let torusEntity = ModelEntity(mesh: torusMesh, materials: [material])
 }
 
 
