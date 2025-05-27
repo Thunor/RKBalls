@@ -135,19 +135,14 @@ struct ModelExample: View {
                 updateCameraTransform(camera)
             }
             .background(Color.black)
-//            .onChange(of: zoomFactor, { oldValue, newValue in
-//                //
-//                if let starField = rContent?.entities.first {
-//                    // Apply zoom transform around pivot point
-//                    updateStarFieldTransform(starField, zoomFactor: zoomFactor)
-//                }
-//                updateCameraTransform(camera, zoomFactor: zoomFactor)
-//            })
             .gesture(TapGesture(count: 2).targetedToEntity(where: .has(AllowGestures.self)).onEnded { gesture in
-                if let hitEntity = gesture.entity as? ModelEntity {
-                    pivotPoint = hitEntity.position(relativeTo: nil)
-//                    selectedStarId = hitEntity.id
-                }
+                if let hitEntity = gesture.entity as? ModelEntity,
+                       let starField = rContent?.entities.first {
+                        // Convert world position to starField's local space
+                        let worldPosition = hitEntity.position(relativeTo: nil)
+                        let localPivot = starField.convert(position: worldPosition, from: nil)
+                        pivotPoint = localPivot
+                    }
             })
             .simultaneousGesture(TapGesture(count: 1).targetedToEntity(where: .has(AllowGestures.self)).onEnded({ gesture in
                 print("got tap for", gesture.entity.name)
@@ -175,8 +170,6 @@ struct ModelExample: View {
             .onAppear(perform:{
                 // handle scroll wheel events
                 NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-                    //                    let ddelta: Float = Float(-event.scrollingDeltaY / 10)
-                    //                    reScale(ddelta: ddelta)
                     let zoomStep: Float = -0.05
                     let newZoom = zoomFactor - Float(event.scrollingDeltaY) * zoomStep
                     zoomFactor = max(0.1, min(newZoom, 10.0))
@@ -184,9 +177,7 @@ struct ModelExample: View {
                     return event
                 }
             })
-//            .id(zoomFactor)
             
-
             HStack {
                 Spacer()
                 HStack{
