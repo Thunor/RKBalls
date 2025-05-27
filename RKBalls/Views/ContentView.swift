@@ -57,7 +57,7 @@ struct ModelExample: View {
                 // create a red sun object
                 let redSun = MeshResource.generateSphere(radius: 0.5)
                 var pMat = PhysicallyBasedMaterial()
-                pMat.emissiveIntensity = 0.05
+                pMat.emissiveIntensity = 0.9
                 pMat.emissiveColor = .init(color: .red)
                 pMat.baseColor = .init(tint: .red)
                 let redSunME = ModelEntity(mesh: redSun, materials: [pMat])
@@ -82,9 +82,18 @@ struct ModelExample: View {
                 rockPlanetME.components[AllowGestures.self] = .init()
                 anchorEntity.addChild(rockPlanetME)
                 
+                // create an orbit track for the rock planet
                 let torusMesh = generateThinTorus()
                 let material = SimpleMaterial(color: .yellow, isMetallic: false)
                 let torusEntity = ModelEntity(mesh: torusMesh, materials: [material])
+                // you can modify the rotation angles here:
+                let torusXAngle: Float = (.pi / 180) * 90
+                let torusYAngle: Float = (.pi / 180) * 0
+                let torusZAngle: Float = (.pi / 180) * 0
+                let xQuat = simd_quatf(angle: torusXAngle, axis: SIMD3<Float>(x: 1, y: 0, z: 0))
+                let yQuat = simd_quatf(angle: torusYAngle, axis: SIMD3<Float>(x: 0, y: 1, z: 0))
+                let zQuat = simd_quatf(angle: torusZAngle, axis: SIMD3<Float>(x: 0, y: 0, z: 1))
+                torusEntity.transform.rotation = yQuat * xQuat * zQuat
                 redSunME.addChild(torusEntity)
                 
                 // load an object and give it an orbit to follow
@@ -259,7 +268,7 @@ struct ModelExample: View {
     
     // MARK: used to create a thin torus mesh
 
-    func generateThinTorus(majorRadius: Float = 1.0, minorRadius: Float = 0.01, majorSegments: Int = 64, minorSegments: Int = 16) -> MeshResource {
+    func generateThinTorus(majorRadius: Float = 1.0, minorRadius: Float = 0.001, majorSegments: Int = 64, minorSegments: Int = 16) -> MeshResource {
         var positions: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
         var indices: [UInt32] = []
